@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can only read/write their own data
+    match /users/{phoneNumber} {
+      allow read, write: if request.auth != null && 
+        (resource.data.phoneNumber == phoneNumber || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+    }
+
+    // Test history - users can only see their own
+    match /testHistory/{docId} {
+      allow read, write: if request.auth != null && 
+        (resource.data.phoneNumber == request.auth.uid ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+    }
+
+    // Tests - students can read, admins can write
+    match /tests/{testId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Writing submissions - users can write their own, admins can read all
+    match /writingSubmissions/{docId} {
+      allow write: if request.auth != null && 
+        request.resource.data.phoneNumber == request.auth.uid;
+      allow read: if request.auth != null && 
+        (resource.data.phoneNumber == request.auth.uid ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+    }
+
+    // Admin-only collections
+    match /admin/{document=**} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+  }
+}
